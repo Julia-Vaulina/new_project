@@ -9,7 +9,7 @@ vk_token = ''
 ya_token = ''
 
 
-def users_foto(id, token, count):
+def users_foto(id, vk_token, count):
     url = 'https://api.vk.com/method/photos.getAll'
     params = {'owner_id': id,
               'extended': '1',
@@ -17,7 +17,7 @@ def users_foto(id, token, count):
               'no_service_albums': '0',
               'v': '5.131',
               'oauth': '1',
-              'access_token': token}
+              'access_token': vk_token}
     response = requests.get(url, params=params)
     return response.json()
 
@@ -71,15 +71,13 @@ def create_id_shelfes():
 
 def get_foto_vk():
     foto_vk = {}
-    for news in fotos['response']['items']:
-        for x in news['sizes']:
-            if x['type'] == 'z':
-                if news['likes']['count'] not in foto_vk:
-                    foto_vk[news['likes']['count']] = [x['url']]
-                else:
-                    foto_vk[news['likes']['count'] + news['date']] = [x['url']]
-    return foto_vk
+    for items in fotos['response']['items']:
+        if items['likes']['count'] not in foto_vk:
+            foto_vk[items['likes']['count']] = max([int(x['height']*x['width']), x['url']] for x in items['sizes'])[1]
+        else:
+            foto_vk[items['likes']['count'] + items['date']] = max([int(x['height']*x['width']), x['url']] for x in items['sizes'])[1]
 
+    return foto_vk
 
 def download_foto_vk():
     coun = 0
@@ -90,8 +88,8 @@ def download_foto_vk():
         coun += 1
 
     new_list = [x for x in os.listdir(str(user_id)) if x[-4:] == '.jpg']
-    return new_list
 
+    return new_list
 
 def download_foto_yandex(dy):
     if dy == '1':
@@ -104,12 +102,13 @@ def download_foto_yandex(dy):
     else:
         print('Ок, загрузим потом')
 
-
 user_id = input('Введите id пользователя: ')
 count = input('Введите количество фото для загрузки: ')
 create_id_shelfes()
 fotos = users_foto(user_id, vk_token, count)
+
 get_foto_vk()
+
 print(f'Получены ссылки для загрузки {len(get_foto_vk())} фотографий.')
 dl = input(f'Для продолжения введите 1, для отмены любой ввод: ')
 if dl == '1':
@@ -119,6 +118,18 @@ if dl == '1':
           f'Всего фотографий в папке {len(download_foto_vk())}.')
     dy = input(f'Грузим на яндекс-диск? '
                f'Для продолжения введите 1, для для отмены любой ввод: ')
+    if dy == '1':
+        new_list = [x for x in os.listdir(str(user_id)) if x[-4:] == '.jpg']
+        print(new_list)
+        if __name__ == '__main__':
+            disk = YaDisk(token=ya_token)
+            disk.new_folder_disk(f'{user_id}')
+            for files in new_list:
+                disk.upload_file_to_disk(f'{user_id}/{files}', files)
+            print("Фото загружены")
+
+    else:
+        print('Ок, загрузим позже')
     download_foto_yandex(dy)
 else:
     print('Ок, загрузим потом')
